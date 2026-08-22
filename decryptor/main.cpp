@@ -194,7 +194,7 @@ void StartDecryption(const std::string& personalKey) {
     std::cout << "========================================\n";
     std::cout << "[*] Initializing decryption...\n";
     
-    sodium_init();
+    (void)sodium_init();
     auto chachaKey = KeyGen::DeriveChaChaKey(personalKey);
     Encryption::Initialize(chachaKey);
     
