@@ -9,23 +9,32 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Install mingw and libsodium
+    - name: Install vcpkg and libsodium
+      run: |
+        git clone https://github.com/Microsoft/vcpkg.git
+        cd vcpkg
+        .\bootstrap-vcpkg.bat
+        .\vcpkg install libsodium:x64-windows-static
+        echo "VCPKG_ROOT=$env:GITHUB_WORKSPACE\vcpkg" >> $env:GITHUB_ENV
+    
+    - name: Install mingw
       run: |
         choco install mingw -y
-        choco install libsodium -y
         echo "C:\mingw64\bin" >> $GITHUB_PATH
-        echo "C:\ProgramData\chocolatey\lib\libsodium\build\x64\vc16\Release" >> $GITHUB_PATH
     
     - name: Build decryptor
       run: |
-        g++ -O2 -s -static -std=c++17 decryptor.cpp -o KRAIT_DECRYPTOR.exe -ladvapi32 -luser32 -lgdi32 -lshell32 -lcrypt32 -lws2_32 -lsodium
+        g++ -O2 -s -static -std=c++17 -I vcpkg\installed\x64-windows-static\include decryptor.cpp -o KRAIT_DECRYPTOR.exe -L vcpkg\installed\x64-windows-static\lib -ladvapi32 -luser32 -lgdi32 -lshell32 -lcrypt32 -lws2_32 -lsodium
+    
+    - name: Build resources
+      run: |
+        windres -i krait.webp -o krait.res -O coff
     
     - name: Build encryptor
       run: |
-        windres -i krait.webp -o krait.res -O coff
-        g++ -O2 -s -static -std=c++17 encryptor.cpp krait.res -o KRAIT.exe -ladvapi32 -luser32 -lgdi32 -lshell32 -lcrypt32 -lws2_32 -lsodium
+        g++ -O2 -s -static -std=c++17 -I vcpkg\installed\x64-windows-static\include encryptor.cpp krait.res -o KRAIT.exe -L vcpkg\installed\x64-windows-static\lib -ladvapi32 -luser32 -lgdi32 -lshell32 -lcrypt32 -lws2_32 -lsodium
     
-    - name: Upload
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: Krait
