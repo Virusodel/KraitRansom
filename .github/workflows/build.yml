@@ -9,6 +9,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
+    - name: Fix folder name (scr → src)
+      run: |
+        if exist scr rename scr src
+    
     - name: List files (debug)
       run: |
         dir
@@ -26,7 +30,6 @@ jobs:
     
     - name: Copy decryptor to resources
       run: |
-        mkdir resources 2>nul
         copy KRAIT_DECRYPTOR.exe resources\KRAIT_DECRYPTOR.exe
     
     - name: Build resources
