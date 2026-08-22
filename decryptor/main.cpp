@@ -1,5 +1,5 @@
-#include "../src/encryption.h"
-#include "../src/keygen.h"
+#include "encryption.h"
+#include "keygen.h"
 #include <windows.h>
 #include <shlobj.h>
 #include <filesystem>
@@ -248,14 +248,22 @@ void StartDecryption(const std::string& personalKey) {
     std::cout << "========================================\n";
 }
 
-int main() {
+int main(int argc, char* argv[]) {
     std::cout << "\n========================================\n";
     std::cout << "  KRAIT DECRYPTOR\n";
     std::cout << "========================================\n";
-    std::cout << "\nEnter your personal key: ";
     
     std::string personalKey;
-    std::getline(std::cin, personalKey);
+    
+    // Если передан аргумент - используем его
+    if (argc >= 2) {
+        personalKey = argv[1];
+        std::cout << "[*] Using key from command line.\n";
+    } else {
+        // Иначе запрашиваем ввод
+        std::cout << "\nEnter your personal key: ";
+        std::getline(std::cin, personalKey);
+    }
     
     // Удаляем пробелы
     personalKey.erase(std::remove_if(personalKey.begin(), personalKey.end(), ::isspace), personalKey.end());
@@ -270,10 +278,6 @@ int main() {
     
     // Запуск дешифрации
     StartDecryption(personalKey);
-    
-    // Удаляем READ_ME.txt файлы
-    std::cout << "\n[*] Cleaning up READ_ME.txt files...\n";
-    // (Опционально: удаляем все READ_ME.txt в зашифрованных папках)
     
     std::cout << "\nPress any key to exit...\n";
     system("pause");
