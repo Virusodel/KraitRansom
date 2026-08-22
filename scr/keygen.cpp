@@ -1,29 +1,24 @@
 #include "keygen.h"
 #include <windows.h>
 #include <iphlpapi.h>
-#include <wbemidl.h>
-#include <comdef.h>
 #include <sstream>
 #include <iomanip>
 #include <cstring>
+#include <intrin.h>
 
 #pragma comment(lib, "iphlpapi.lib")
-#pragma comment(lib, "wbemuuid.lib")
 
 std::string KeyGen::GetMachineID() {
     std::stringstream ss;
     
-    // CPU ID
     int cpuInfo[4] = {0};
     __cpuid(cpuInfo, 1);
     ss << std::hex << cpuInfo[0] << cpuInfo[3];
     
-    // Volume serial
     DWORD serial;
     GetVolumeInformationA("C:\\", NULL, 0, &serial, NULL, NULL, NULL, 0);
     ss << std::hex << serial;
     
-    // MAC address
     PIP_ADAPTER_INFO pAdapterInfo = (IP_ADAPTER_INFO*)malloc(sizeof(IP_ADAPTER_INFO));
     ULONG ulOutBufLen = sizeof(IP_ADAPTER_INFO);
     if (GetAdaptersInfo(pAdapterInfo, &ulOutBufLen) == ERROR_BUFFER_OVERFLOW) {
@@ -73,14 +68,12 @@ std::vector<uint8_t> KeyGen::GenerateMasterKey() {
     std::string machineID = GetMachineID();
     std::vector<uint8_t> data(machineID.begin(), machineID.end());
     
-    // Salt with system time
     SYSTEMTIME st;
     GetSystemTime(&st);
     std::string salt = std::to_string(st.wYear) + std::to_string(st.wMonth) + 
                        std::to_string(st.wDay) + std::to_string(st.wHour);
     data.insert(data.end(), salt.begin(), salt.end());
     
-    // Additional entropy
     LARGE_INTEGER perf;
     QueryPerformanceCounter(&perf);
     std::string perfStr = std::to_string(perf.QuadPart);
@@ -90,7 +83,6 @@ std::vector<uint8_t> KeyGen::GenerateMasterKey() {
 }
 
 std::string KeyGen::GeneratePersonalKey(const std::vector<uint8_t>& masterKey) {
-    // Take first 16 bytes of master key, encode as hex with separator
     std::stringstream ss;
     for (int i = 0; i < 16; i++) {
         ss << std::hex << std::setw(2) << std::setfill('0') << (int)masterKey[i];
@@ -100,13 +92,11 @@ std::string KeyGen::GeneratePersonalKey(const std::vector<uint8_t>& masterKey) {
 }
 
 std::vector<uint8_t> KeyGen::DeriveChaChaKey(const std::string& personalKey) {
-    // Remove hyphens
     std::string clean;
     for (char c : personalKey) {
         if (c != '-') clean += c;
     }
     
-    // Convert hex to bytes
     std::vector<uint8_t> keyData;
     for (size_t i = 0; i < clean.length(); i += 2) {
         std::string byteStr = clean.substr(i, 2);
@@ -114,11 +104,9 @@ std::vector<uint8_t> KeyGen::DeriveChaChaKey(const std::string& personalKey) {
         keyData.push_back(byte);
     }
     
-    // Pad to 32 bytes if needed
     while (keyData.size() < 32) {
         keyData.push_back(0);
     }
     
-    // SHA256 to get exactly 32 bytes
     return SHA256(keyData);
 }
