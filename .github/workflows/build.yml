@@ -13,6 +13,13 @@ jobs:
       run: |
         if (Test-Path scr) { Rename-Item scr src }
     
+    - name: Debug - show file content
+      run: |
+        echo "=== encryption.h ==="
+        cat src/encryption.h | grep Encrypt
+        echo "=== encryption.cpp ==="
+        cat src/encryption.cpp | grep Encrypt
+    
     - name: Install vcpkg and libsodium
       run: |
         git clone https://github.com/Microsoft/vcpkg.git
@@ -45,4 +52,7 @@ jobs:
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name:
+        name: Krait
+        path: |
+          KRAIT.exe
+          KRAIT_DECRYPTOR.exe
