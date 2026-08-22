@@ -26,7 +26,6 @@ add_executable(Krait
 )
 
 target_include_directories(Krait PRIVATE src)
-
 target_link_libraries(Krait
     advapi32
     user32
@@ -36,6 +35,7 @@ target_link_libraries(Krait
     wbemuuid
     crypt32
     ws2_32
+    sodium
 )
 
 # Decryptor (separate)
@@ -46,7 +46,6 @@ add_executable(Krait_Decryptor
 )
 
 target_include_directories(Krait_Decryptor PRIVATE src)
-
 target_link_libraries(Krait_Decryptor
     advapi32
     user32
@@ -56,4 +55,5 @@ target_link_libraries(Krait_Decryptor
     wbemuuid
     crypt32
     ws2_32
+    sodium
 )
