@@ -9,6 +9,12 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
+    - name: List files (debug)
+      run: |
+        dir
+        dir src
+        dir decryptor
+    
     - name: Install dependencies
       run: |
         choco install mingw -y
