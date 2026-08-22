@@ -1,4 +1,6 @@
 #include "encryption.h"
+#undef EncryptFile
+#undef DecryptFile
 #include <sodium.h>
 #include <windows.h>
 #include <fstream>
