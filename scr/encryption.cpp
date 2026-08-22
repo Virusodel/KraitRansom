@@ -9,7 +9,7 @@ static std::vector<uint8_t> g_key;
 
 void Encryption::Initialize(const std::vector<uint8_t>& key) {
     g_key = key;
-    sodium_init();
+    (void)sodium_init();
 }
 
 void Encryption::EncryptFile(const std::string& filePath) {
