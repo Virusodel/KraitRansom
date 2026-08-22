@@ -26,7 +26,7 @@ jobs:
     
     - name: Build resources
       run: |
-        rc /r krait.rc /fo krait.res
+        rc krait.rc
     
     - name: Build encryptor
       run: |
