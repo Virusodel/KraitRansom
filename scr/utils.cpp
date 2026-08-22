@@ -1,6 +1,7 @@
 #include "utils.h"
 #include <windows.h>
 #include <vector>
+#include <cstdint>
 
 std::vector<uint8_t> StringToBytes(const std::string& str) {
     std::vector<uint8_t> bytes;
