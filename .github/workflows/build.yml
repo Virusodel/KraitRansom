@@ -11,13 +11,13 @@ jobs:
     
     - name: Fix folder name (scr → src)
       run: |
-        if exist scr rename scr src
+        if (Test-Path scr) { Rename-Item scr src }
     
     - name: List files (debug)
       run: |
         dir
-        dir src
-        dir decryptor
+        if (Test-Path src) { dir src }
+        if (Test-Path decryptor) { dir decryptor }
     
     - name: Install dependencies
       run: |
@@ -30,7 +30,7 @@ jobs:
     
     - name: Copy decryptor to resources
       run: |
-        copy KRAIT_DECRYPTOR.exe resources\KRAIT_DECRYPTOR.exe
+        Copy-Item KRAIT_DECRYPTOR.exe resources\KRAIT_DECRYPTOR.exe
     
     - name: Build resources
       run: |
