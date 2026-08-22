@@ -20,7 +20,6 @@ jobs:
         .\bootstrap-vcpkg.bat
         .\vcpkg install libsodium:x64-windows-static
         echo "VCPKG_ROOT=$env:GITHUB_WORKSPACE\vcpkg" >> $env:GITHUB_ENV
-        echo "$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows-static\bin" >> $env:GITHUB_PATH
     
     - name: Install mingw
       run: |
@@ -46,7 +45,4 @@ jobs:
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: Krait
-        path: |
-          KRAIT.exe
-          KRAIT_DECRYPTOR.exe
+        name:
